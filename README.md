@@ -12,12 +12,15 @@ Setelah kontainer berjalan:
 * **MySQL Host (External):** `localhost:33066`
 
 ## 2. Mengimpor Data Master GeoJSON
-Letakkan file `provinces.json`, `regencies.json`, `districts.json`, dan `villages.json` di dalam folder `database/data/`.
-Lalu jalankan perintah artisan di dalam kontainer:
+Dataset master wilayah Indonesia (38 Provinsi, 514 Kab/Kota, 7.285 Kecamatan, dan 83.762 Desa/Kelurahan) telah tersedia di direktori `database/data/` dalam format terkompresi `.json.gz`.
+
+Jalankan perintah import di dalam kontainer:
 
 ```bash
 docker compose exec app php artisan wilayah:import
 ```
+*(Catatan: Perintah ini secara otomatis membaca file `.json.gz` dan menggabungkan seluruh part desa tanpa perlu diekstrak manual).*
+
 
 ## 3. Cek Status Rekap Data
 ```bash
