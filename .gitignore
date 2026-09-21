@@ -27,8 +27,9 @@
 deploy_package/
 wilayah-deploy-package.tar.gz
 
-# Raw GeoJSON datasets (villages.json is 346MB, exceeds GitHub 100MB limit)
+# Raw uncompressed GeoJSON datasets (compressed .json.gz is tracked instead)
 /database/data/*.json
+!/database/data/*.json.gz
 !/database/data/.gitkeep
 !/database/data/README.md
 

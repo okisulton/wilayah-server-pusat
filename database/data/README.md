@@ -1,18 +1,18 @@
 # Direktori Dataset GeoJSON Wilayah Indonesia
 
-Direktori ini digunakan untuk menyimpan file dataset master wilayah format JSON dari Kemendagri / BPS:
+Direktori ini berisi seluruh dataset master wilayah format GeoJSON yang telah dikompresi agar dapat disimpan di dalam Git:
 
-- `provinces.json` (38 Provinsi)
-- `regencies.json` (514 Kabupaten / Kota)
-- `districts.json` (7.285 Kecamatan)
-- `villages.json` (83.762 Desa / Kelurahan - ~346 MB)
+- `provinces.json.gz` (38 Provinsi - 1.6 MB)
+- `regencies.json.gz` (514 Kabupaten / Kota - 2.3 MB)
+- `districts.json.gz` (7.285 Kecamatan - 4.1 MB)
+- `villages_part1.json.gz` s/d `villages_part4.json.gz` (83.762 Desa / Kelurahan - total 92 MB terkompresi, dibagi 4 part agar ukuran masing-masing file < 35 MB dan memenuhi standar GitHub)
 
 > **Catatan:**
-> Seluruh file dataset `*.json` diabaikan dari repositori Git (`.gitignore`) karena file `villages.json` berukuran 346 MB (melebihi batas maksimal unggahan GitHub 100 MB).
-> 
-> Untuk memuat data ke dalam database:
-> 1. Tempatkan file JSON di dalam folder ini.
-> 2. Jalankan perintah import di dalam container:
->    ```bash
->    docker compose exec app php artisan wilayah:import
->    ```
+> File mentah teks `*.json` uncompressed (terutama `villages.json` sebesar 346 MB) diabaikan oleh `.gitignore` untuk mencegah batas ukuran file 100 MB GitHub.
+>
+> Perintah import Laravel (`php artisan wilayah:import`) secara otomatis mendukung pembacaan file `.json.gz` dan penggabungan seluruh part desa tanpa perlu diekstrak manual.
+
+### Cara Menjalankan Import:
+```bash
+docker compose exec app php artisan wilayah:import
+```

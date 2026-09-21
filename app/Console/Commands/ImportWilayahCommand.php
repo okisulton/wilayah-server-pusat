@@ -23,31 +23,56 @@ class ImportWilayahCommand extends Command
         $this->info("   MEMULAI IMPORT DATA MASTER WILAYAH INDONESIA  ");
         $this->info("=================================================");
 
-        $this->importProvinces("{$basePath}/provinces.json");
-        $this->importRegencies("{$basePath}/regencies.json");
-        $this->importDistricts("{$basePath}/districts.json");
-        $this->importVillages("{$basePath}/villages.json");
+        $this->importProvinces($basePath);
+        $this->importRegencies($basePath);
+        $this->importDistricts($basePath);
+        $this->importVillages($basePath);
 
         $this->newLine();
         $this->info("✓ Semua data wilayah berhasil diimpor ke database master!");
         return Command::SUCCESS;
     }
 
-    private function importProvinces(string $file): void
+    /**
+     * Membaca file JSON baik dalam format teks biasa (.json) maupun terkompresi (.json.gz)
+     */
+    private function readJsonData(string $basePath, string $filename): ?array
     {
-        if (!File::exists($file)) {
-            $this->warn("File {$file} tidak ditemukan, melewati provinsi.");
+        // 1. Cek versi terkompresi .json.gz
+        $gzPath = "{$basePath}/{$filename}.json.gz";
+        if (File::exists($gzPath)) {
+            $content = gzdecode(File::get($gzPath));
+            return json_decode($content, true);
+        }
+
+        // 2. Cek versi teks biasa .json
+        $rawPath = "{$basePath}/{$filename}.json";
+        if (File::exists($rawPath)) {
+            $content = File::get($rawPath);
+            return json_decode($content, true);
+        }
+
+        return null;
+    }
+
+    private function importProvinces(string $basePath): void
+    {
+        $items = $this->readJsonData($basePath, 'provinces');
+
+        if ($items === null) {
+            $this->warn("File provinces.json(.gz) tidak ditemukan, melewati provinsi.");
             return;
         }
 
-        $items = json_decode(File::get($file), true) ?? [];
         $this->line("Mengimpor " . count($items) . " Provinsi...");
 
         foreach ($items as $item) {
             $area = null;
             if (!empty($item['coordinates'])) {
                 $geoJson = GeoJsonHelper::normalizeToMultiPolygonGeoJson($item['coordinates']);
-                $area = DB::raw("ST_SRID(ST_GeomFromGeoJSON('{$geoJson}', 1, 4326), 4326)");
+                if ($geoJson) {
+                    $area = DB::raw("ST_SRID(ST_GeomFromGeoJSON('{$geoJson}', 1, 4326), 4326)");
+                }
             }
 
             DB::table('provinces')->updateOrInsert(
@@ -65,10 +90,15 @@ class ImportWilayahCommand extends Command
         $this->info("✓ Provinsi selesai.");
     }
 
-    private function importRegencies(string $file): void
+    private function importRegencies(string $basePath): void
     {
-        if (!File::exists($file)) return;
-        $items = json_decode(File::get($file), true) ?? [];
+        $items = $this->readJsonData($basePath, 'regencies');
+
+        if ($items === null) {
+            $this->warn("File regencies.json(.gz) tidak ditemukan, melewati kabupaten/kota.");
+            return;
+        }
+
         $this->line("Mengimpor " . count($items) . " Kabupaten/Kota...");
 
         $provinceMap = DB::table('provinces')->pluck('id', 'code')->toArray();
@@ -103,10 +133,15 @@ class ImportWilayahCommand extends Command
         $this->info("✓ Kabupaten/Kota selesai.");
     }
 
-    private function importDistricts(string $file): void
+    private function importDistricts(string $basePath): void
     {
-        if (!File::exists($file)) return;
-        $items = json_decode(File::get($file), true) ?? [];
+        $items = $this->readJsonData($basePath, 'districts');
+
+        if ($items === null) {
+            $this->warn("File districts.json(.gz) tidak ditemukan, melewati kecamatan.");
+            return;
+        }
+
         $this->line("Mengimpor " . count($items) . " Kecamatan...");
 
         $regencyMap = DB::table('regencies')->pluck('id', 'code')->toArray();
@@ -141,15 +176,45 @@ class ImportWilayahCommand extends Command
         $this->info("✓ Kecamatan selesai.");
     }
 
-    private function importVillages(string $file): void
+    private function importVillages(string $basePath): void
     {
-        if (!File::exists($file)) return;
-        $items = json_decode(File::get($file), true) ?? [];
-        $total = count($items);
-        $this->line("Mengimpor {$total} Desa/Kelurahan se-Indonesia (Batching & In-Memory Lookup)...");
+        // 1. Cek apakah ada file pecahan villages_part*.json* (termasuk .gz)
+        $partFiles = glob("{$basePath}/villages_part*.json*");
+        sort($partFiles);
+
+        if (!empty($partFiles)) {
+            $districtMap = DB::table('districts')->pluck('id', 'code')->toArray();
+            $this->line("Ditemukan " . count($partFiles) . " file part Desa/Kelurahan.");
+
+            foreach ($partFiles as $partFile) {
+                $filename = basename($partFile);
+                $this->line("Memproses {$filename}...");
+                $content = str_ends_with($partFile, '.gz') 
+                    ? gzdecode(File::get($partFile)) 
+                    : File::get($partFile);
+                $items = json_decode($content, true) ?? [];
+                $this->processVillageBatch($items, $districtMap);
+            }
+            $this->info("✓ Desa/Kelurahan selesai.");
+            return;
+        }
+
+        // 2. Fallback ke file utuh villages.json / villages.json.gz
+        $items = $this->readJsonData($basePath, 'villages');
+        if ($items === null) {
+            $this->warn("File villages.json(.gz) tidak ditemukan, melewati desa.");
+            return;
+        }
 
         $districtMap = DB::table('districts')->pluck('id', 'code')->toArray();
+        $this->line("Mengimpor " . count($items) . " Desa/Kelurahan se-Indonesia...");
+        $this->processVillageBatch($items, $districtMap);
+        $this->info("✓ Desa/Kelurahan selesai.");
+    }
 
+    private function processVillageBatch(array $items, array $districtMap): void
+    {
+        $total = count($items);
         $bar = $this->output->createProgressBar($total);
         $bar->start();
 
@@ -191,6 +256,5 @@ class ImportWilayahCommand extends Command
 
         $bar->finish();
         $this->newLine();
-        $this->info("✓ Desa/Kelurahan selesai.");
     }
 }
