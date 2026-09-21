@@ -1,0 +1,71 @@
+services:
+  app:
+    image: wilayah-app:prod
+    platform: linux/amd64
+    container_name: wilayah_app_prod
+    restart: always
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-db_wilayah_pusat}
+      DB_USERNAME: ${DB_USERNAME:-wilayah_user}
+      DB_PASSWORD: ${DB_PASSWORD:-wilayah_secret_prod_2026}
+      MASTER_API_TOKEN: ${MASTER_API_TOKEN:-rahasia-token-wilayah-pusat-2026}
+    volumes:
+      - app_storage:/var/www/html/storage
+      - app_cache:/var/www/html/bootstrap/cache
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - wilayah_net_prod
+
+  web:
+    image: wilayah-nginx:prod
+    platform: linux/amd64
+    container_name: wilayah_nginx_prod
+    restart: always
+    ports:
+      - "${HTTP_PORT:-8088}:80"
+    depends_on:
+      - app
+    networks:
+      - wilayah_net_prod
+
+  db:
+    image: mysql:8.0.36
+    platform: linux/amd64
+    container_name: wilayah_mysql_prod
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "127.0.0.1:${DB_EXTERNAL_PORT:-33066}:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-db_wilayah_pusat}
+      MYSQL_USER: ${DB_USERNAME:-wilayah_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-wilayah_secret_prod_2026}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_wilayah_prod_2026}
+    volumes:
+      - mysql_data_prod:/var/lib/mysql
+      - ./my.cnf:/etc/mysql/conf.d/spatial.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root_wilayah_prod_2026}"]
+      timeout: 10s
+      retries: 5
+      interval: 5s
+    networks:
+      - wilayah_net_prod
+
+networks:
+  wilayah_net_prod:
+    driver: bridge
+
+volumes:
+  mysql_data_prod:
+    driver: local
+  app_storage:
+    driver: local
+  app_cache:
+    driver: local

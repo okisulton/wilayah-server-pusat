@@ -1,0 +1,50 @@
+# Laravel
+/vendor
+/.env
+/.env.backup
+/.env.*.backup
+/.env.production
+/.phpunit.result.cache
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+/storage/logs/*
+!/storage/framework/cache/.gitignore
+!/storage/framework/sessions/.gitignore
+!/storage/framework/testing/.gitignore
+!/storage/framework/views/.gitignore
+!/storage/logs/.gitignore
+*.log
+
+# Deployment packages, database dumps & large archives
+*.tar.gz
+*.tar
+*.sql
+*.sql.gz
+deploy_package/
+wilayah-deploy-package.tar.gz
+
+# Raw GeoJSON datasets (villages.json is 346MB, exceeds GitHub 100MB limit)
+/database/data/*.json
+!/database/data/.gitkeep
+!/database/data/README.md
+
+# macOS / OS artifacts
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# IDE / Editor configs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
